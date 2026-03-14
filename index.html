@@ -38,17 +38,16 @@
   /* Header */
   header {
     width: 100%;
-    max-width: 500px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 20px 12px;
+    padding: clamp(12px, 4vw, 16px) clamp(16px, 5vw, 20px) clamp(8px, 3vw, 12px);
     border-bottom: 1px solid var(--border);
   }
 
   .logo {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 2rem;
+    font-size: clamp(1.2rem, 5vw, 2rem);
     letter-spacing: 0.12em;
     color: var(--text);
     line-height: 1;
@@ -118,7 +117,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px 0 10px;
+    padding: clamp(16px, 4vw, 20px) 0 clamp(8px, 2vw, 10px);
   }
 
   #board {
@@ -130,19 +129,19 @@
   .row {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 6px;
+    gap: clamp(4px, 1vw, 6px);
   }
 
   .tile {
-    width: 58px;
-    height: 58px;
+    width: clamp(48px, 12vw, 58px);
+    height: clamp(48px, 12vw, 58px);
     border: 2px solid var(--border);
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 2rem;
+    font-size: clamp(1.5rem, 4vw, 2rem);
     letter-spacing: 0.05em;
     color: var(--text);
     position: relative;
@@ -198,20 +197,19 @@
   /* Keyboard */
   #keyboard {
     width: 100%;
-    max-width: 500px;
-    padding: 0 8px 24px;
+    padding: 0 clamp(4px, 2vw, 8px) clamp(16px, 5vw, 24px);
   }
 
   .kb-row {
     display: flex;
     justify-content: center;
-    gap: 6px;
-    margin-bottom: 6px;
+    gap: clamp(4px, 1vw, 6px);
+    margin-bottom: clamp(4px, 1vw, 6px);
   }
 
   .key {
-    height: 56px;
-    min-width: 42px;
+    height: clamp(44px, 10vw, 56px);
+    min-width: clamp(32px, 8vw, 42px);
     padding: 0 6px;
     border-radius: 6px;
     border: none;
@@ -219,7 +217,7 @@
     color: var(--key-text);
     font-family: 'Space Grotesk', sans-serif;
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: clamp(0.7rem, 2vw, 0.85rem);
     cursor: pointer;
     transition: background 0.2s, color 0.2s, transform 0.1s;
     display: flex;
@@ -229,7 +227,7 @@
   }
 
   .key:active { transform: scale(0.94); }
-  .key.wide { min-width: 64px; font-size: 0.75rem; }
+  .key.wide { min-width: clamp(40px, 10vw, 64px); font-size: clamp(0.65rem, 1.8vw, 0.75rem); }
 
   .key.correct { background: var(--correct); color: #fff; }
   .key.present { background: var(--present); color: #fff; }
@@ -626,6 +624,9 @@ const ANSWERS = [
 
 // Valid guesses extended set — unique words from ANSWERS + common 5-letter words
 const VALID_WORDS = new Set(ANSWERS.map(w => w.toLowerCase()));
+
+const WORD_LIST_KEY = 'wordy_extended_words';
+const WORD_LIST_TIMESTAMP_KEY = 'wordy_extended_words_timestamp';
 
 // ─── STATE ────────────────────────────────────────────────────────────────────
 const ROWS = 6;
@@ -1025,35 +1026,56 @@ for (let i = ANSWERS.length - 1; i >= 0; i--) {
 }
 ANSWERS.forEach(w => VALID_WORDS.add(w.toLowerCase()));
 
-// Attempt to fetch extended word list from a CORS-friendly source
-fetch('https://api.allorigins.win/raw?url=https://raw.githubusercontent.com/tabatkins/wordle-list/main/words')
-  .then(r => r.text())
-  .then(text => {
-    text.split('\n').forEach(w => {
-      const word = w.trim().toLowerCase();
-      if (word.length === 5 && /^[a-z]+$/.test(word)) {
+function loadExtendedWords() {
+  return new Promise((resolve) => {
+    const cachedList = localStorage.getItem(WORD_LIST_KEY);
+    const cachedTimestamp = localStorage.getItem(WORD_LIST_TIMESTAMP_KEY);
+    const now = Date.now();
+    const oneYear = 365 * 24 * 60 * 60 * 1000;
+    if (cachedList && cachedTimestamp && (now - parseInt(cachedTimestamp)) < oneYear) {
+      const words = JSON.parse(cachedList);
+      words.forEach(word => {
         VALID_WORDS.add(word);
         ANSWERS.push(word);
-      }
-    });
-    console.log(`Extended word list loaded: ${VALID_WORDS.size} valid words, ${ANSWERS.length} possible answers`);
-  })
-  .catch(() => {
-    console.log('Using built-in word list');
-  })
-  .finally(() => {
-    startNewGame();
-    // Hide loading screen
-    const loading = document.getElementById('loading');
-    loading.classList.add('hidden');
-    setTimeout(() => loading.remove(), 500);
-
-    // Show help on first visit
-    if (!localStorage.getItem('wordy_seen_help')) {
-      localStorage.setItem('wordy_seen_help', '1');
-      setTimeout(() => openModal('help-modal'), 300);
+      });
+      console.log(`Loaded cached word list: ${VALID_WORDS.size} valid words, ${ANSWERS.length} possible answers`);
+      resolve();
+    } else {
+      fetch('https://api.allorigins.win/raw?url=https://raw.githubusercontent.com/blocktator/wordy/main/words')
+        .then(r => r.text())
+        .then(text => {
+          const words = text.split('\n').map(w => w.trim().toLowerCase()).filter(w => w.length === 5 && /^[a-z]+$/.test(w));
+          words.forEach(word => {
+            VALID_WORDS.add(word);
+            ANSWERS.push(word);
+          });
+          localStorage.setItem(WORD_LIST_KEY, JSON.stringify(words));
+          localStorage.setItem(WORD_LIST_TIMESTAMP_KEY, now.toString());
+          console.log(`Extended word list loaded: ${VALID_WORDS.size} valid words, ${ANSWERS.length} possible answers`);
+          resolve();
+        })
+        .catch(() => {
+          console.log('Using built-in word list');
+          resolve();
+        });
     }
   });
+}
+
+// Attempt to fetch extended word list from a CORS-friendly source
+loadExtendedWords().then(() => {
+  startNewGame();
+  // Hide loading screen
+  const loading = document.getElementById('loading');
+  loading.classList.add('hidden');
+  setTimeout(() => loading.remove(), 500);
+
+  // Show help on first visit
+  if (!localStorage.getItem('wordy_seen_help')) {
+    localStorage.setItem('wordy_seen_help', '1');
+    setTimeout(() => openModal('help-modal'), 300);
+  }
+});
 </script>
 </body>
 </html>
