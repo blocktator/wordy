@@ -104,6 +104,11 @@
     animation: toastIn 0.2s forwards, toastOut 0.3s 1.7s forwards;
   }
 
+  .toast.toast-error {
+    background: #c0392b;
+    color: #fff;
+  }
+
   @keyframes toastIn {
     to { opacity: 1; transform: translateY(0); }
   }
@@ -474,6 +479,58 @@
     40% { transform: scale(1); opacity: 1; }
   }
 
+  /* Game history */
+  .history-section { margin-bottom: 20px; }
+
+  .history-section h3 {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+    padding: 6px 10px;
+    background: var(--bg);
+    border-radius: 6px;
+  }
+
+  .history-word {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1rem;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    flex: 1;
+  }
+
+  .history-result {
+    font-weight: 700;
+    font-size: 0.75rem;
+  }
+
+  .history-result.won { color: var(--correct); }
+  .history-result.lost { color: var(--text-muted); }
+
+  .history-empty {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 12px;
+  }
+
   /* Help modal */
   .example-row {
     display: flex;
@@ -529,7 +586,7 @@
 
 <!-- BOARD -->
 <div id="board-container">
-  <div id="board"></div>
+  <div id="board" role="grid" aria-label="Wordy game board"></div>
 </div>
 
 <!-- KEYBOARD -->
@@ -553,6 +610,10 @@
     <div class="histogram">
       <h3>Guess Distribution</h3>
       <div id="histogram-bars"></div>
+    </div>
+    <div class="history-section">
+      <h3>Recent Games</h3>
+      <div class="history-list" id="history-list"></div>
     </div>
     <button class="btn" id="new-game-stats-btn">New Game</button>
   </div>
@@ -639,6 +700,26 @@ let gameOver = false;
 let revealInProgress = false;
 
 const STORAGE_KEY = 'wordy_stats_v1';
+const HISTORY_KEY = 'wordy_history_v1';
+const HISTORY_MAX = 20;
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(entry) {
+  try {
+    const history = loadHistory();
+    history.unshift(entry);
+    if (history.length > HISTORY_MAX) history.length = HISTORY_MAX;
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  } catch { /* localStorage unavailable */ }
+}
 
 function loadStats() {
   try {
@@ -657,7 +738,11 @@ function loadStats() {
 }
 
 function saveStats(stats) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+  } catch {
+    // localStorage unavailable (private browsing, storage quota exceeded)
+  }
 }
 
 // ─── BOARD ────────────────────────────────────────────────────────────────────
@@ -697,6 +782,7 @@ function buildKeyboard() {
       btn.className = 'key' + (k === 'ENTER' || k === '⌫' ? ' wide' : '');
       btn.textContent = k;
       btn.dataset.key = k;
+      btn.setAttribute('aria-label', k === '⌫' ? 'Backspace' : k);
       btn.addEventListener('click', () => handleKey(k));
       row.appendChild(btn);
     });
@@ -767,7 +853,7 @@ function deleteLetter() {
 function submitGuess() {
   if (currentTiles.length < COLS) {
     shakeTiles();
-    showToast('Not enough letters');
+    showToast('Not enough letters', 2000, true);
     return;
   }
 
@@ -775,7 +861,7 @@ function submitGuess() {
 
   if (!VALID_WORDS.has(guess)) {
     shakeTiles();
-    showToast('Not in word list');
+    showToast('Not in word list', 2000, true);
     return;
   }
 
@@ -876,6 +962,7 @@ function onWin(row) {
   stats.maxStreak = Math.max(stats.maxStreak, stats.streak);
   stats.distribution[row + 1] = (stats.distribution[row + 1] || 0) + 1;
   saveStats(stats);
+  saveHistory({ word: targetWord, guesses: row + 1, won: true, date: Date.now() });
 
   setTimeout(() => {
     showToast(WIN_MSGS[Math.min(row, WIN_MSGS.length - 1)]);
@@ -891,6 +978,7 @@ function onLose() {
   stats.played++;
   stats.streak = 0;
   saveStats(stats);
+  saveHistory({ word: targetWord, guesses: ROWS, won: false, date: Date.now() });
 
   setTimeout(() => {
     showToast(targetWord.toUpperCase(), 3000);
@@ -899,13 +987,16 @@ function onLose() {
 }
 
 // ─── TOASTS ───────────────────────────────────────────────────────────────────
-function showToast(msg, duration = 2000) {
+function showToast(msg, duration = 2000, isError = false) {
   const c = document.getElementById('toast-container');
   const t = document.createElement('div');
-  t.className = 'toast';
+  t.className = 'toast' + (isError ? ' toast-error' : '');
   t.textContent = msg;
   c.appendChild(t);
-  setTimeout(() => t.remove(), duration + 100);
+  const displayDuration = isError ? Math.max(duration, 3500) : duration;
+  t.style.animationDuration = `0.2s, 0.3s`;
+  t.style.animationDelay = `0s, ${displayDuration - 300}ms`;
+  setTimeout(() => t.remove(), displayDuration + 100);
 }
 
 // ─── MODALS ───────────────────────────────────────────────────────────────────
@@ -986,6 +1077,36 @@ function renderStatsModal(stats, highlightRow) {
   document.getElementById('s-streak').textContent = stats.streak;
   document.getElementById('s-maxstreak').textContent = stats.maxStreak;
   renderHistogram('histogram-bars', stats, highlightRow);
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  const history = loadHistory();
+  list.innerHTML = '';
+  if (!history.length) {
+    const empty = document.createElement('div');
+    empty.className = 'history-empty';
+    empty.textContent = 'No games yet';
+    list.appendChild(empty);
+    return;
+  }
+  history.forEach(entry => {
+    const item = document.createElement('div');
+    item.className = 'history-item';
+
+    const word = document.createElement('div');
+    word.className = 'history-word';
+    word.textContent = entry.word.toUpperCase();
+
+    const result = document.createElement('div');
+    result.className = 'history-result ' + (entry.won ? 'won' : 'lost');
+    result.textContent = entry.won ? `${entry.guesses}/6` : 'X/6';
+
+    item.appendChild(word);
+    item.appendChild(result);
+    list.appendChild(item);
+  });
 }
 
 function showGameOverModal(won, stats, guessCount) {
@@ -1026,6 +1147,12 @@ for (let i = ANSWERS.length - 1; i >= 0; i--) {
 }
 ANSWERS.forEach(w => VALID_WORDS.add(w.toLowerCase()));
 
+function fetchWithTimeout(url, timeoutMs) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(id));
+}
+
 function loadExtendedWords() {
   return new Promise((resolve) => {
     const cachedList = localStorage.getItem(WORD_LIST_KEY);
@@ -1033,27 +1160,42 @@ function loadExtendedWords() {
     const now = Date.now();
     const oneYear = 365 * 24 * 60 * 60 * 1000;
     if (cachedList && cachedTimestamp && (now - parseInt(cachedTimestamp)) < oneYear) {
-      const words = JSON.parse(cachedList);
-      words.forEach(word => {
-        VALID_WORDS.add(word);
-      });
-      console.log(`Loaded cached word list: ${VALID_WORDS.size} valid words, ${ANSWERS.length} possible answers`);
+      try {
+        const words = JSON.parse(cachedList);
+        words.forEach(word => VALID_WORDS.add(word));
+        console.log(`Loaded cached word list: ${VALID_WORDS.size} valid words, ${ANSWERS.length} possible answers`);
+      } catch {
+        console.warn('Cached word list corrupted, will re-fetch next time');
+        localStorage.removeItem(WORD_LIST_KEY);
+        localStorage.removeItem(WORD_LIST_TIMESTAMP_KEY);
+      }
       resolve();
     } else {
-      fetch('https://api.allorigins.win/raw?url=https://raw.githubusercontent.com/blocktator/wordy/main/words')
-        .then(r => r.text())
+      fetchWithTimeout(
+        'https://api.allorigins.win/raw?url=https://raw.githubusercontent.com/blocktator/wordy/main/words',
+        8000
+      )
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.text();
+        })
         .then(text => {
-          const words = text.split('\n').map(w => w.trim().toLowerCase()).filter(w => w.length === 5 && /^[a-z]+$/.test(w));
-          words.forEach(word => {
-            VALID_WORDS.add(word);
-          });
-          localStorage.setItem(WORD_LIST_KEY, JSON.stringify(words));
-          localStorage.setItem(WORD_LIST_TIMESTAMP_KEY, now.toString());
+          const words = text.split('\n')
+            .map(w => w.trim().toLowerCase())
+            .filter(w => w.length === 5 && /^[a-z]+$/.test(w));
+          if (words.length < 1000) throw new Error('Word list too short, likely an error response');
+          words.forEach(word => VALID_WORDS.add(word));
+          try {
+            localStorage.setItem(WORD_LIST_KEY, JSON.stringify(words));
+            localStorage.setItem(WORD_LIST_TIMESTAMP_KEY, now.toString());
+          } catch {
+            // localStorage full or unavailable — continue without caching
+          }
           console.log(`Extended word list loaded: ${VALID_WORDS.size} valid words, ${ANSWERS.length} possible answers`);
           resolve();
         })
-        .catch(() => {
-          console.log('Using built-in word list');
+        .catch(err => {
+          console.warn('Extended word list unavailable:', err.message || err);
           resolve();
         });
     }
@@ -1069,8 +1211,13 @@ loadExtendedWords().then(() => {
   setTimeout(() => loading.remove(), 500);
 
   // Show help on first visit
-  if (!localStorage.getItem('wordy_seen_help')) {
-    localStorage.setItem('wordy_seen_help', '1');
+  try {
+    if (!localStorage.getItem('wordy_seen_help')) {
+      localStorage.setItem('wordy_seen_help', '1');
+      setTimeout(() => openModal('help-modal'), 300);
+    }
+  } catch {
+    // localStorage unavailable — skip persisting help-seen flag
     setTimeout(() => openModal('help-modal'), 300);
   }
 });
