@@ -12,7 +12,7 @@
     --surface: #1a1a1a;
     --border: #2e2e2e;
     --text: #f0ece3;
-    --text-muted: #666;
+    --text-muted: #888;
     --correct: #4a90d9;
     --present: #b59f3b;
     --absent: #3a3a3c;
@@ -516,20 +516,20 @@
   <div class="loading-dots"><span></span><span></span><span></span></div>
 </div>
 
-<div id="toast-container"></div>
+<div id="toast-container" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <!-- HEADER -->
 <header>
   <div class="logo">W<span style="color:#b59f3b">O</span>RD<span style="color:#4a90d9">Y</span></div>
   <div class="header-btns">
-    <button class="icon-btn" id="help-btn" title="How to play">?</button>
-    <button class="icon-btn" id="stats-btn" title="Statistics">📊</button>
+    <button class="icon-btn" id="help-btn" title="How to play" aria-label="How to play">?</button>
+    <button class="icon-btn" id="stats-btn" title="Statistics" aria-label="Statistics">📊</button>
   </div>
 </header>
 
 <!-- BOARD -->
 <div id="board-container">
-  <div id="board"></div>
+  <div id="board" role="grid" aria-label="Wordy game board"></div>
 </div>
 
 <!-- KEYBOARD -->
@@ -673,6 +673,8 @@ function buildBoard() {
       const tile = document.createElement('div');
       tile.className = 'tile';
       tile.id = `tile-${r}-${c}`;
+      tile.setAttribute('role', 'cell');
+      tile.setAttribute('aria-label', '');
       row.appendChild(tile);
     }
     board.appendChild(row);
@@ -697,6 +699,7 @@ function buildKeyboard() {
       btn.className = 'key' + (k === 'ENTER' || k === '⌫' ? ' wide' : '');
       btn.textContent = k;
       btn.dataset.key = k;
+      btn.setAttribute('aria-label', k === '⌫' ? 'Backspace' : k);
       btn.addEventListener('click', () => handleKey(k));
       row.appendChild(btn);
     });
@@ -751,6 +754,7 @@ function addLetter(letter) {
   const tile = getTile(currentRow, col);
   tile.textContent = letter;
   tile.dataset.letter = letter;
+  tile.setAttribute('aria-label', letter);
   currentTiles.push(letter);
 }
 
@@ -760,6 +764,7 @@ function deleteLetter() {
   const tile = getTile(currentRow, col);
   tile.textContent = '';
   delete tile.dataset.letter;
+  tile.setAttribute('aria-label', '');
   currentTiles.pop();
 }
 
@@ -826,6 +831,7 @@ function revealRow(row, result, guess) {
       setTimeout(() => {
         tile.classList.add(state);
         tile.style.transform = 'rotateX(0deg)';
+        tile.setAttribute('aria-label', `${guess[col].toUpperCase()} - ${state}`);
         updateKeyboard(guess[col], state);
 
         if (col === COLS - 1) {
