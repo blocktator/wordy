@@ -572,6 +572,7 @@
       <div id="gameover-histogram"></div>
     </div>
     <button class="btn" id="new-game-btn">Play Again</button>
+    <button class="btn secondary" id="share-btn">Share Results</button>
     <button class="btn secondary" id="full-stats-btn">See All Stats</button>
   </div>
 </div>
@@ -637,6 +638,9 @@ let currentRow = 0;
 let currentTiles = [];
 let gameOver = false;
 let revealInProgress = false;
+let gameResults = []; // per-row results for share feature
+let lastGuessCount = 0;
+let lastWon = false;
 
 const STORAGE_KEY = 'wordy_stats_v1';
 
@@ -815,6 +819,7 @@ function evaluateGuess(guess, target) {
 function revealRow(row, result, guess) {
   const FLIP_DELAY = 300;
   const FLIP_DUR = 400;
+  gameResults[row] = result;
 
   result.forEach((state, col) => {
     const tile = getTile(row, col);
@@ -876,6 +881,8 @@ function onWin(row) {
   stats.maxStreak = Math.max(stats.maxStreak, stats.streak);
   stats.distribution[row + 1] = (stats.distribution[row + 1] || 0) + 1;
   saveStats(stats);
+  lastGuessCount = row + 1;
+  lastWon = true;
 
   setTimeout(() => {
     showToast(WIN_MSGS[Math.min(row, WIN_MSGS.length - 1)]);
@@ -891,6 +898,7 @@ function onLose() {
   stats.played++;
   stats.streak = 0;
   saveStats(stats);
+  lastWon = false;
 
   setTimeout(() => {
     showToast(targetWord.toUpperCase(), 3000);
@@ -1003,6 +1011,29 @@ function showGameOverModal(won, stats, guessCount) {
   openModal('gameover-modal');
 }
 
+// ─── SHARE ───────────────────────────────────────────────────────────────────
+function buildShareText() {
+  const EMOJI = { correct: '🟦', present: '🟨', absent: '⬛' };
+  const header = `WORDY ${lastWon ? lastGuessCount : 'X'}/6`;
+  const grid = gameResults.slice(0, lastWon ? lastGuessCount : ROWS)
+    .map(row => row.map(s => EMOJI[s]).join(''))
+    .join('\n');
+  return `${header}\n\n${grid}`;
+}
+
+document.getElementById('share-btn').addEventListener('click', () => {
+  const text = buildShareText();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Copied to clipboard!');
+    }).catch(() => {
+      showToast('Could not copy — try manually');
+    });
+  } else {
+    showToast('Clipboard not available');
+  }
+});
+
 // ─── NEW GAME ─────────────────────────────────────────────────────────────────
 function startNewGame() {
   targetWord = ANSWERS[Math.floor(Math.random() * ANSWERS.length)].toLowerCase();
@@ -1010,6 +1041,9 @@ function startNewGame() {
   currentTiles = [];
   gameOver = false;
   revealInProgress = false;
+  gameResults = [];
+  lastGuessCount = 0;
+  lastWon = false;
   buildBoard();
   resetKeyboard();
 }
