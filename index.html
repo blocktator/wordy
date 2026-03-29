@@ -104,6 +104,11 @@
     animation: toastIn 0.2s forwards, toastOut 0.3s 1.7s forwards;
   }
 
+  .toast.toast-error {
+    background: #c0392b;
+    color: #fff;
+  }
+
   @keyframes toastIn {
     to { opacity: 1; transform: translateY(0); }
   }
@@ -751,6 +756,7 @@ function addLetter(letter) {
   const tile = getTile(currentRow, col);
   tile.textContent = letter;
   tile.dataset.letter = letter;
+  tile.setAttribute('aria-label', letter);
   currentTiles.push(letter);
 }
 
@@ -760,6 +766,7 @@ function deleteLetter() {
   const tile = getTile(currentRow, col);
   tile.textContent = '';
   delete tile.dataset.letter;
+  tile.setAttribute('aria-label', '');
   currentTiles.pop();
 }
 
@@ -767,7 +774,7 @@ function deleteLetter() {
 function submitGuess() {
   if (currentTiles.length < COLS) {
     shakeTiles();
-    showToast('Not enough letters');
+    showToast('Not enough letters', 2000, true);
     return;
   }
 
@@ -775,7 +782,7 @@ function submitGuess() {
 
   if (!VALID_WORDS.has(guess)) {
     shakeTiles();
-    showToast('Not in word list');
+    showToast('Not in word list', 2000, true);
     return;
   }
 
@@ -899,13 +906,16 @@ function onLose() {
 }
 
 // ─── TOASTS ───────────────────────────────────────────────────────────────────
-function showToast(msg, duration = 2000) {
+function showToast(msg, duration = 2000, isError = false) {
   const c = document.getElementById('toast-container');
   const t = document.createElement('div');
-  t.className = 'toast';
+  t.className = 'toast' + (isError ? ' toast-error' : '');
   t.textContent = msg;
   c.appendChild(t);
-  setTimeout(() => t.remove(), duration + 100);
+  const displayDuration = isError ? Math.max(duration, 3500) : duration;
+  t.style.animationDuration = `0.2s, 0.3s`;
+  t.style.animationDelay = `0s, ${displayDuration - 300}ms`;
+  setTimeout(() => t.remove(), displayDuration + 100);
 }
 
 // ─── MODALS ───────────────────────────────────────────────────────────────────
