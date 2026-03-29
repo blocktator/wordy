@@ -657,7 +657,11 @@ function loadStats() {
 }
 
 function saveStats(stats) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+  } catch {
+    // localStorage unavailable (private browsing, storage quota exceeded)
+  }
 }
 
 // ─── BOARD ────────────────────────────────────────────────────────────────────
@@ -1069,8 +1073,13 @@ loadExtendedWords().then(() => {
   setTimeout(() => loading.remove(), 500);
 
   // Show help on first visit
-  if (!localStorage.getItem('wordy_seen_help')) {
-    localStorage.setItem('wordy_seen_help', '1');
+  try {
+    if (!localStorage.getItem('wordy_seen_help')) {
+      localStorage.setItem('wordy_seen_help', '1');
+      setTimeout(() => openModal('help-modal'), 300);
+    }
+  } catch {
+    // localStorage unavailable — show help anyway
     setTimeout(() => openModal('help-modal'), 300);
   }
 });
