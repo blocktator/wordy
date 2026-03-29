@@ -22,6 +22,21 @@
     --modal-bg: rgba(0,0,0,0.85);
   }
 
+  :root.light {
+    --bg: #f9f7f2;
+    --surface: #ffffff;
+    --border: #d3d3d3;
+    --text: #1a1a1a;
+    --text-muted: #666;
+    --correct: #4a90d9;
+    --present: #c9a227;
+    --absent: #787c7e;
+    --key-bg: #d3d6da;
+    --key-text: #1a1a1a;
+    --accent: #c9a227;
+    --modal-bg: rgba(255,255,255,0.85);
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
@@ -522,6 +537,7 @@
 <header>
   <div class="logo">W<span style="color:#b59f3b">O</span>RD<span style="color:#4a90d9">Y</span></div>
   <div class="header-btns">
+    <button class="icon-btn" id="theme-btn" title="Toggle theme">🌙</button>
     <button class="icon-btn" id="help-btn" title="How to play">?</button>
     <button class="icon-btn" id="stats-btn" title="Statistics">📊</button>
   </div>
@@ -911,6 +927,24 @@ function showToast(msg, duration = 2000) {
 // ─── MODALS ───────────────────────────────────────────────────────────────────
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ─── THEME ───────────────────────────────────────────────────────────────────
+(function initTheme() {
+  try {
+    if (localStorage.getItem('wordy_theme') === 'light') {
+      document.documentElement.classList.add('light');
+      document.getElementById('theme-btn').textContent = '☀️';
+    }
+  } catch { /* localStorage unavailable */ }
+})();
+
+document.getElementById('theme-btn').addEventListener('click', () => {
+  const isLight = document.documentElement.classList.toggle('light');
+  document.getElementById('theme-btn').textContent = isLight ? '☀️' : '🌙';
+  try {
+    localStorage.setItem('wordy_theme', isLight ? 'light' : 'dark');
+  } catch { /* localStorage unavailable */ }
+});
 
 document.getElementById('stats-btn').addEventListener('click', () => {
   renderStatsModal(loadStats(), null);
