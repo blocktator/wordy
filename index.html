@@ -1103,8 +1103,13 @@ loadExtendedWords().then(() => {
   setTimeout(() => loading.remove(), 500);
 
   // Show help on first visit
-  if (!localStorage.getItem('wordy_seen_help')) {
-    localStorage.setItem('wordy_seen_help', '1');
+  try {
+    if (!localStorage.getItem('wordy_seen_help')) {
+      localStorage.setItem('wordy_seen_help', '1');
+      setTimeout(() => openModal('help-modal'), 300);
+    }
+  } catch {
+    // localStorage unavailable — skip persisting help-seen flag
     setTimeout(() => openModal('help-modal'), 300);
   }
 });
