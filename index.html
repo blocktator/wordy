@@ -833,6 +833,7 @@ function revealRow(row, result, guess) {
       setTimeout(() => {
         tile.classList.add(state);
         tile.style.transform = 'rotateX(0deg)';
+        tile.setAttribute('aria-label', `${guess[col].toUpperCase()} - ${state}`);
         updateKeyboard(guess[col], state);
 
         if (col === COLS - 1) {
